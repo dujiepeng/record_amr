@@ -1,0 +1,29 @@
+PODS:
+  - EMVoiceConvert (0.1.0)
+  - Flutter (1.0.0)
+  - record_amr (0.0.1):
+    - EMVoiceConvert (= 0.1.0)
+    - Flutter
+
+DEPENDENCIES:
+  - Flutter (from `Flutter`)
+  - record_amr (from `.symlinks/plugins/record_amr/ios`)
+
+SPEC REPOS:
+  trunk:
+    - EMVoiceConvert
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: Flutter
+  record_amr:
+    :path: ".symlinks/plugins/record_amr/ios"
+
+SPEC CHECKSUMS:
+  EMVoiceConvert: 32a0eaada94d93c151a5abd53ee174cd4e63b01f
+  Flutter: 0e3d915762c693b495b44d77113d4970485de6ec
+  record_amr: f36570dd8b061cf88526d0cb6f5eaea4616690fc
+
+PODFILE CHECKSUM: b1f7a399522c118a74b177b13c01eca692aa7e6d
+
+COCOAPODS: 1.10.0
