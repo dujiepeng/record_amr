@@ -19,7 +19,8 @@ A new flutter plugin project.
   s.platform = :ios, '8.0'
 
   # Flutter.framework does not contain a i386 slice.
-  s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386' }
+  s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386', 'OTHER_LDFLAGS' => '-ObjC'}
   s.dependency 'EMVoiceConvert', '0.1.0'
-  
+  s.frameworks = 'AVFoundation'
+  s.libraries = 'stdc++'
 end

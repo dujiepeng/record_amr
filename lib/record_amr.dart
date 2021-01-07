@@ -46,9 +46,14 @@ class RecordAmr {
   /// stop record
   /// return amr file path.
   static Future<String> stopVoiceRecord() async {
-    String path = await _channel.invokeMethod('stopVoiceRecord') as String;
+    Map result = await _channel.invokeMethod('stopVoiceRecord');
+    print(result);
     _private._callBack = null;
     _private.recoreding = false;
+    String path = result['path'];
+    num timeLength = result['timeLength'].toDouble();
+
+    print('path ---- $path,  timeLength ---- $timeLength');
 
     return path;
   }
