@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 /// `volume` 0 ~ 1;
 typedef VolumeCallBack = Function(double volume);
+typedef StopRecordCallBack = void Function(String path, int duration);
 
 class RecordAmr {
   static const MethodChannel _channel = const MethodChannel('record_amr');
@@ -17,6 +18,12 @@ class RecordAmr {
 
   RecordAmr._() {
     _channel.setMethodCallHandler((call) {
+      if (call.method == 'volume') {
+        double volume = call.arguments.toDouble();
+        if (_private._callBack != null) {
+          _private._callBack(volume);
+        }
+      }
       return null;
     });
   }
@@ -27,9 +34,7 @@ class RecordAmr {
   /// start record
   /// [path] record file path.
   /// [callBack] volume callback: 0 ~ 1.
-  static Future<bool> startVoiceRecord({
-    VolumeCallBack volumeCallBack,
-  }) async {
+  static Future<bool> startVoiceRecord([VolumeCallBack volumeCallBack]) async {
     if (_private.recoreding) {
       return false;
     }
@@ -44,18 +49,15 @@ class RecordAmr {
   }
 
   /// stop record
-  /// return amr file path.
-  static Future<String> stopVoiceRecord() async {
+  static Future<bool> stopVoiceRecord(StopRecordCallBack callBack) async {
     Map result = await _channel.invokeMethod('stopVoiceRecord');
-    print(result);
     _private._callBack = null;
     _private.recoreding = false;
+    String error = result['error'];
     String path = result['path'];
-    num timeLength = result['timeLength'].toDouble();
-
-    print('path ---- $path,  timeLength ---- $timeLength');
-
-    return path;
+    int duration = result['duration'] as int;
+    callBack(path, duration);
+    return error == null ? true : false;
   }
 
   /// cancel record

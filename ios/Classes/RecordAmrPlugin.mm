@@ -8,11 +8,13 @@
     NSError *_error;
     NSString *recordPath;
     FlutterResult _endResult;
+    NSTimer *_levelTimer;
+    NSDictionary *_recordSetting;
+    NSDate *_startDate;
 }
 @property (nonatomic, strong) NSString *path;
 @property (nonatomic, strong) AVAudioRecorder *recorder;
-@property (nonatomic, strong) NSDictionary *recordSetting;
-@property (nonatomic, strong) NSDate *startDate;
+@property (nonatomic, strong) FlutterMethodChannel* channel;
 
 @end
     
@@ -24,6 +26,7 @@
                                      methodChannelWithName:@"record_amr"
                                      binaryMessenger:[registrar messenger]];
     RecordAmrPlugin* instance = [[RecordAmrPlugin alloc] init];
+    instance.channel = channel;
     [registrar addMethodCallDelegate:instance channel:channel];
 }
 
@@ -34,15 +37,41 @@
     if ([@"startVoiceRecord" isEqualToString:call.method])
     {
         [self startVoiceRecord:call.arguments result:result];
-    } else if ([@"stopVoiceRecord" isEqualToString:call.method])
+    }
+    else if ([@"stopVoiceRecord" isEqualToString:call.method])
     {
         [self stopVoiceRecord:call.arguments result:result];
-    } else if ([@"cancelVoiceRecord" isEqualToString:call.method])
+    }
+    else if ([@"cancelVoiceRecord" isEqualToString:call.method])
     {
         [self cancelVoiceRecord:call.arguments result:result];
-    } else {
+    }
+    else if ([@"playAmrFile" isEqualToString:call.method])
+    {
+        [self playAmr:call.arguments result:result];
+    }
+    else if ([@"stopPlayAmrFile" isEqualToString:call.method])
+    {
+        [self stopPlayAmrFile:call.arguments result:result];
+    }
+    else {
         result(FlutterMethodNotImplemented);
     }
+}
+
+
+- (void)playAmr:(NSDictionary *)callInfo result:(FlutterResult)result
+{
+    NSString *filePath = callInfo[@"path"];
+    NSLog(@"%@", filePath);
+    result(@(YES));
+}
+
+- (void)stopPlayAmrFile:(NSDictionary *)callInfo result:(FlutterResult)result
+{
+    NSString *filePath = callInfo[@"path"];
+    NSLog(@"%@", filePath);
+    result(@(YES));
 }
 
 
@@ -71,10 +100,6 @@
     [self startRecordWithPath:recordPath
                    completion:^(NSError *error)
     {
-        if (error) {
-            NSLog(@"error -- %@",error);
-        }
-        
         result(@(error == nil));
     }];
 }
@@ -121,7 +146,7 @@
 
         NSString *wavPath = [[aPath stringByDeletingPathExtension] stringByAppendingPathExtension:@"wav"];
         NSURL *wavUrl = [[NSURL alloc] initFileURLWithPath:wavPath];
-        self.recorder = [[AVAudioRecorder alloc] initWithURL:wavUrl settings:self.recordSetting error:&error];
+        self.recorder = [[AVAudioRecorder alloc] initWithURL:wavUrl settings:_recordSetting error:&error];
         if(error || !self.recorder) {
             self.recorder = nil;
             error = [NSError errorWithDomain:@"初始化录制失败" code:-1 userInfo:nil];
@@ -130,10 +155,14 @@
         
         BOOL ret = [self.recorder prepareToRecord];
         if (ret) {
-            self.startDate = [NSDate date];
+            _startDate = [NSDate date];
             self.recorder.meteringEnabled = YES;
             self.recorder.delegate = self;
             ret = [self.recorder record];
+            _levelTimer = [NSTimer scheduledTimerWithTimeInterval: 0.3 target: self
+                                                         selector: @selector(levelTimerCallback:)
+                                                         userInfo: nil
+                                                          repeats: YES];
         }
         
         if (!ret) {
@@ -150,6 +179,40 @@
 
 #pragma mark - Private
 
+- (void)levelTimerCallback:(NSTimer *)timer {
+    if (!_recorder) {
+        return;
+    }
+    [_recorder updateMeters];
+    
+    float   level;                // The linear 0.0 .. 1.0 value we need.
+    float   minDecibels = -60.0f; // use -80db Or use -60dB, which I measured in a silent room.
+    float   decibels    = [_recorder averagePowerForChannel:0];
+    
+    if (decibels < minDecibels)
+    {
+        level = 0.0f;
+    }
+    else if (decibels >= 0.0f)
+    {
+        level = 1.0f;
+    }
+    else
+    {
+        float   root            = 5.0f; //modified level from 2.0 to 5.0 is neast to real test
+        float   minAmp          = powf(10.0f, 0.05f * minDecibels);
+        float   inverseAmpRange = 1.0f / (1.0f - minAmp);
+        float   amp             = powf(10.0f, 0.05f * decibels);
+        float   adjAmp          = (amp - minAmp) * inverseAmpRange;
+        
+        level = powf(adjAmp, 1.0f / root);
+    }
+    
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.channel invokeMethod:@"volume" arguments:@(level)];
+    });
+}
+
 - (void)_stopRecord
 {
     _recorder.delegate = nil;
@@ -157,7 +220,13 @@
     if (_recorder.recording) {
         [_recorder stop];
     }
+    if (_levelTimer) {
+        [_levelTimer invalidate];
+    }
+    _levelTimer = nil;
     _recorder = nil;
+    _path = nil;
+    _startDate = nil;
 }
 
 
@@ -170,8 +239,6 @@
 -(void)cancelRecord
 {
     [self _stopRecord];
-    _path = nil;
-    self.startDate = nil;
 }
 
 
@@ -207,7 +274,7 @@
 - (void)audioRecorderDidFinishRecording:(AVAudioRecorder *)recorder
                            successfully:(BOOL)flag
 {
-    NSInteger timeLength = [[NSDate date] timeIntervalSinceDate:self.startDate];
+    NSInteger duration = [[NSDate date] timeIntervalSinceDate:_startDate];
     NSString *recordPath = [[self.recorder url] path];
     if (!flag) {
         recordPath = nil;
@@ -223,21 +290,21 @@
         amrFilePath = amrFilePath;
     } else {
         recordPath = nil;
-        timeLength = 0;
+        duration = 0;
     }
     self.recorder = nil;
     if (_endResult) {
-        _endResult(@{@"path":amrFilePath, @"timeLength":@(timeLength)});
+        _endResult(@{@"path":amrFilePath, @"duration":@(duration)});
     }
     _endResult = nil;
+    [self _stopRecord];
 }
 
 - (void)audioRecorderEncodeErrorDidOccur:(AVAudioRecorder *)recorder
                                    error:(NSError *)error{
     [self _stopRecord];
-    _endResult(@{@"path":@"", @"timeLength": @(0)});
+    _endResult(@{@"path":@"", @"duration": @(0), @"error": error.domain});
 }
-
 
 
 - (NSString *)path
