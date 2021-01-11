@@ -12,6 +12,9 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # 权限管理
+  permission_handler: ^5.0.1+1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

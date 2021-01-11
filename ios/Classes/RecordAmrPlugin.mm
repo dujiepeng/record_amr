@@ -48,14 +48,6 @@
     {
         [self cancelVoiceRecord:call.arguments result:result];
     }
-    else if ([@"playAmrFile" isEqualToString:call.method])
-    {
-        [self playAmr:call.arguments result:result];
-    }
-    else if ([@"stopPlayAmrFile" isEqualToString:call.method])
-    {
-        [self stopPlayAmrFile:call.arguments result:result];
-    }
     else if ([@"play" isEqualToString:call.method])
     {
         [self playAmr:call.arguments result:result];

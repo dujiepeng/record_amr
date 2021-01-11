@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:record_amr/record_amr.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   runApp(MyApp());
@@ -13,6 +14,13 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   double _volume = 0;
   String _path;
+
+  @override
+  void initState() {
+    _requestPermiss();
+    super.initState();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -96,5 +104,10 @@ class _MyAppState extends State<MyApp> {
 
   _stop() async {
     await RecordAmr.stop();
+  }
+
+  /// 申请权限
+  _requestPermiss() async {
+    await Permission.microphone.request();
   }
 }

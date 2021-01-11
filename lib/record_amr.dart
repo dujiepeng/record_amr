@@ -93,6 +93,7 @@ class RecordAmr {
 
   /// stop playing amr file
   static Future<Null> stop() async {
+    _private._stopCallBack = null;
     await _channel.invokeMethod('stopPlaying') as bool;
     return null;
   }
