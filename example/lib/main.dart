@@ -12,6 +12,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   double _volume = 0;
+  String _path;
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -38,6 +39,19 @@ class _MyAppState extends State<MyApp> {
                   ),
                 ),
               ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.play_arrow),
+                    onPressed: () => _play(),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.stop),
+                    onPressed: () => _stop(),
+                  ),
+                ],
+              )
             ],
           ),
         ),
@@ -57,6 +71,7 @@ class _MyAppState extends State<MyApp> {
 
   _stopRecord() async {
     bool success = await RecordAmr.stopVoiceRecord((path, duration) {
+      _path = path;
       print('path --- $path, duration ---- $duration');
     });
     setState(() {
@@ -67,6 +82,19 @@ class _MyAppState extends State<MyApp> {
 
   _cancelRecord() async {
     await RecordAmr.cancelVoiceRecord();
+    setState(() {
+      _volume = 0;
+    });
     print('取消录制');
+  }
+
+  _play() async {
+    await RecordAmr.play(_path, (path) {
+      print('play end');
+    });
+  }
+
+  _stop() async {
+    await RecordAmr.stop();
   }
 }

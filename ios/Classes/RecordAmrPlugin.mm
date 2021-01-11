@@ -3,7 +3,7 @@
 #import <EMVoiceConvert/EMVoiceConvert.h>
 #import "amrFileCodec.h"
 
-@interface RecordAmrPlugin () <AVAudioRecorderDelegate>
+@interface RecordAmrPlugin () <AVAudioRecorderDelegate, AVAudioPlayerDelegate>
 {
     NSError *_error;
     NSString *recordPath;
@@ -14,7 +14,9 @@
 }
 @property (nonatomic, strong) NSString *path;
 @property (nonatomic, strong) AVAudioRecorder *recorder;
+@property (nonatomic, strong) AVAudioPlayer *player;
 @property (nonatomic, strong) FlutterMethodChannel* channel;
+@property (nonatomic, strong) NSString *playingPath;
 
 @end
     
@@ -54,26 +56,18 @@
     {
         [self stopPlayAmrFile:call.arguments result:result];
     }
+    else if ([@"play" isEqualToString:call.method])
+    {
+        [self playAmr:call.arguments result:result];
+    }
+    else if ([@"stopPlaying" isEqualToString:call.method])
+    {
+        [self stopPlayAmrFile:call.arguments result:result];
+    }
     else {
         result(FlutterMethodNotImplemented);
     }
 }
-
-
-- (void)playAmr:(NSDictionary *)callInfo result:(FlutterResult)result
-{
-    NSString *filePath = callInfo[@"path"];
-    NSLog(@"%@", filePath);
-    result(@(YES));
-}
-
-- (void)stopPlayAmrFile:(NSDictionary *)callInfo result:(FlutterResult)result
-{
-    NSString *filePath = callInfo[@"path"];
-    NSLog(@"%@", filePath);
-    result(@(YES));
-}
-
 
 - (void)startVoiceRecord:(NSDictionary *)callInfo result:(FlutterResult)result {
     
@@ -97,7 +91,7 @@
     }
     
     recordPath = [self.path stringByAppendingFormat:@"/%.0f", [[NSDate date] timeIntervalSince1970] * 1000];
-    [self startRecordWithPath:recordPath
+    [self _startRecordWithPath:recordPath
                    completion:^(NSError *error)
     {
         result(@(error == nil));
@@ -105,11 +99,26 @@
 }
 
 - (void)stopVoiceRecord:(NSDictionary *)callInfo result:(FlutterResult)result {
-    [self stopRecordWithCompletion:result];
+    [self _stopRecordWithCompletion:result];
 }
 
 - (void)cancelVoiceRecord:(NSDictionary *)callInfo result:(FlutterResult)result {
-    [self cancelRecord];
+    [self _cancelRecord];
+    result(@(YES));
+}
+
+- (void)playAmr:(NSDictionary *)callInfo result:(FlutterResult)result
+{
+    NSString *filePath = callInfo[@"path"];
+    [self _startPlayerWithPath:filePath
+                    completion:^(NSError *error) {
+    result(@(error == nil));
+    }];
+}
+
+- (void)stopPlayAmrFile:(NSDictionary *)callInfo result:(FlutterResult)result
+{
+    [self _stopPlayer];
     result(@(YES));
 }
 
@@ -136,16 +145,13 @@
     [self _stopRecord];
 }
 
-
-
-- (void)startRecordWithPath:(NSString *)aPath
+- (void)_startRecordWithPath:(NSString *)aPath
                  completion:(void(^)(NSError *error))aCompletion
 {
     NSError *error = nil;
     do {
-
-        NSString *wavPath = [[aPath stringByDeletingPathExtension] stringByAppendingPathExtension:@"wav"];
-        NSURL *wavUrl = [[NSURL alloc] initFileURLWithPath:wavPath];
+        NSString *_wavPath = [[aPath stringByDeletingPathExtension] stringByAppendingPathExtension:@"wav"];
+        NSURL *wavUrl = [[NSURL alloc] initFileURLWithPath:_wavPath];
         self.recorder = [[AVAudioRecorder alloc] initWithURL:wavUrl settings:_recordSetting error:&error];
         if(error || !self.recorder) {
             self.recorder = nil;
@@ -160,7 +166,7 @@
             self.recorder.delegate = self;
             ret = [self.recorder record];
             _levelTimer = [NSTimer scheduledTimerWithTimeInterval: 0.3 target: self
-                                                         selector: @selector(levelTimerCallback:)
+                                                         selector: @selector(_levelTimerCallback:)
                                                          userInfo: nil
                                                           repeats: YES];
         }
@@ -179,7 +185,7 @@
 
 #pragma mark - Private
 
-- (void)levelTimerCallback:(NSTimer *)timer {
+- (void)_levelTimerCallback:(NSTimer *)timer {
     if (!_recorder) {
         return;
     }
@@ -230,25 +236,23 @@
 }
 
 
--(void)stopRecordWithCompletion:(FlutterResult)aCompletion
+-(void)_stopRecordWithCompletion:(FlutterResult)aCompletion
 {
     _endResult = aCompletion;
     [self.recorder stop];
 }
 
--(void)cancelRecord
+-(void)_cancelRecord
 {
     [self _stopRecord];
 }
 
-
-#pragma mark - Private
-
-+ (int)wavPath:(NSString *)aWavPath toAmrPath:(NSString*)aAmrPath
++ (int)_wavPath:(NSString *)aWavPath toAmrPath:(NSString*)aAmrPath
 {
-    
     if (EM_EncodeWAVEFileToAMRFile([aWavPath cStringUsingEncoding:NSASCIIStringEncoding], [aAmrPath cStringUsingEncoding:NSASCIIStringEncoding], 1, 16))
+    {
         return 0;   // success
+    }
     
     return 1;   // failed
 }
@@ -260,7 +264,7 @@
     if ([fileManager fileExistsAtPath:aAmrPath]) {
         ret = YES;
     } else if ([fileManager fileExistsAtPath:aWavPath]) {
-        [RecordAmrPlugin wavPath:aWavPath toAmrPath:aAmrPath];
+        [RecordAmrPlugin _wavPath:aWavPath toAmrPath:aAmrPath];
         if ([fileManager fileExistsAtPath:aAmrPath]) {
             ret = YES;
         }
@@ -268,6 +272,122 @@
     
     return ret;
 }
+
+- (void)_startPlayerWithPath:(NSString *)aPath
+                  completion:(void(^)(NSError *error))aCompleton {
+    NSError *error = nil;
+    do {
+        NSFileManager *fm = [NSFileManager defaultManager];
+        if (![aPath isKindOfClass:[NSString class]] || ![fm fileExistsAtPath:aPath]) {
+            error = [NSError errorWithDomain:@"文件路径不存在" code:-1 userInfo:nil];
+            break;
+        }
+        
+        if (self.player && self.player.isPlaying && [self.playingPath isEqualToString:aPath]) {
+            break;
+        } else {
+            if (_playingPath) {
+                [self _stopPlayer];
+            }
+        }
+        
+        aPath = [self _convertAudioFile:aPath];
+        if ([aPath length] == 0) {
+            error = [NSError errorWithDomain:@"转换音频格式失败" code:-1 userInfo:nil];
+            break;
+        }
+        
+        NSURL *wavUrl = [[NSURL alloc] initFileURLWithPath:aPath];
+        self.player = [[AVAudioPlayer alloc] initWithContentsOfURL:wavUrl error:&error];
+        if (error || !self.player) {
+            self.player = nil;
+            error = [NSError errorWithDomain:@"初始化AVAudioPlayer失败" code:-1 userInfo:nil];
+            break;
+        }
+        
+        self.playingPath = aPath;
+        
+        self.player.delegate = self;
+        BOOL ret = [self.player prepareToPlay];
+        if (ret) {
+            AVAudioSession *audioSession = [AVAudioSession sharedInstance];
+            [audioSession setCategory:AVAudioSessionCategoryPlayback error:&error];
+            if (error) {
+                break;
+            }
+        }
+        
+        ret = [self.player play];
+        if (!ret) {
+            [self _stopPlayer];
+            error = [NSError errorWithDomain:@"AVAudioPlayer播放失败" code:-1 userInfo:nil];
+        }
+        
+    } while (0);
+    
+    if (error) {
+        if (aCompleton) {
+            aCompleton(error);
+        }
+    }
+}
+
+- (void)_stopPlayer
+{
+    [self.channel invokeMethod:@"stopPlaying" arguments:@{@"error": @(NO), @"path": _playingPath ?: @""}];
+    if(_player) {
+        _player.delegate = nil;
+        [_player stop];
+        _player = nil;
+    }
+    
+    self.playingPath = nil;
+}
+
++ (int)_isMP3File:(NSString *)aFilePath
+{
+    const char *filePath = [aFilePath cStringUsingEncoding:NSASCIIStringEncoding];
+    return isMP3File(filePath);
+}
+
++ (int)_amrToWav:(NSString*)aAmrPath wavSavePath:(NSString*)aWavPath
+{
+    
+    if (EM_DecodeAMRFileToWAVEFile([aAmrPath cStringUsingEncoding:NSASCIIStringEncoding], [aWavPath cStringUsingEncoding:NSASCIIStringEncoding]))
+        return 0; // success
+    
+    return 1;   // failed
+}
+
+
+- (NSString *)_convertAudioFile:(NSString *)aPath
+{
+    if ([[aPath pathExtension] isEqualToString:@"mp3"]) {
+        return aPath;
+    }
+    
+    NSString *retPath = [[aPath stringByDeletingPathExtension] stringByAppendingPathExtension:@"wav"];
+    do {
+        NSFileManager *fileManager = [NSFileManager defaultManager];
+        if ([fileManager fileExistsAtPath:retPath]) {
+            break;
+        }
+        
+        if ([RecordAmrPlugin _isMP3File:retPath]) {
+            retPath = aPath;
+            break;
+        }
+        
+        [RecordAmrPlugin _amrToWav:aPath wavSavePath:retPath];
+        if (![fileManager fileExistsAtPath:retPath]) {
+            retPath = nil;
+        }
+        
+    } while (0);
+    
+    return retPath;
+}
+
 
 #pragma mark - AVAudioRecorderDelegate
 
@@ -306,6 +426,29 @@
     _endResult(@{@"path":@"", @"duration": @(0), @"error": error.domain});
 }
 
+#pragma mark - AVAudioPlayerDelegate
+
+- (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)player
+                       successfully:(BOOL)flag
+{
+    if (_player) {
+        [self.channel invokeMethod:@"stopPlaying" arguments:@{@"error": (@NO), @"path": _playingPath}];
+        _player.delegate = nil;
+        _player = nil;
+        _playingPath = nil;
+    }
+}
+
+- (void)audioPlayerDecodeErrorDidOccur:(AVAudioPlayer *)player
+                                 error:(NSError *)error
+{
+    [self.channel invokeMethod:@"stopPlaying" arguments:@{@"error": @"decodeError", @"path": _playingPath}];
+    if (_player) {
+        _player.delegate = nil;
+        _player = nil;
+        _playingPath = nil;
+    }
+}
 
 - (NSString *)path
 {
