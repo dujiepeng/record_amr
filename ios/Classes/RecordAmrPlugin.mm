@@ -103,8 +103,9 @@
 {
     NSString *filePath = callInfo[@"path"];
     [self _startPlayerWithPath:filePath
-                    completion:^(NSError *error) {
-    result(@(error == nil));
+                    completion:^(NSError *error)
+     {
+        result(@(error == nil));
     }];
 }
 

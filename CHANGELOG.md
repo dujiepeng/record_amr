@@ -1,3 +1,4 @@
 ## 0.0.1
 
-* TODO: Describe initial release.
+* android and iOS support record amr files.
+* android and iOS support play amr files.

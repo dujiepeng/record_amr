@@ -74,7 +74,7 @@ class _MyAppState extends State<MyApp> {
         _volume = volume;
       });
     });
-    print('开始录制 ---- $success');
+    print('start record ---- $success');
   }
 
   _stopRecord() async {
@@ -85,7 +85,7 @@ class _MyAppState extends State<MyApp> {
     setState(() {
       _volume = 0;
     });
-    print('结束录制 ---- $success');
+    print('stop record ---- $success');
   }
 
   _cancelRecord() async {
@@ -106,7 +106,6 @@ class _MyAppState extends State<MyApp> {
     await RecordAmr.stop();
   }
 
-  /// 申请权限
   _requestPermiss() async {
     await Permission.microphone.request();
   }

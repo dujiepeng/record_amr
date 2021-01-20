@@ -1,15 +1,21 @@
 # record_amr
 
-A new flutter plugin project.
+record and play amr file.
 
 ## Getting Started
 
-This project is a starting point for a Flutter
-[plug-in package](https://flutter.dev/developing-packages/),
-a specialized package that includes platform-specific implementation code for
-Android and/or iOS.
+Android:
 
-For help getting started with Flutter, view our
-[online documentation](https://flutter.dev/docs), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```
+<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
+```
 
+iOS:
+
+
+
+```
+Privacy - Microphone Usage Description
+```
+change `GeneratedPluginRegistrant.m` to `GeneratedPluginRegistrant.mm`
