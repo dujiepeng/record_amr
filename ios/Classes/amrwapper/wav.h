@@ -20,28 +20,28 @@
 #define WAV_H
 
 #include <stdio.h>
-
+#ifdef __cplusplus
 class WavWriter {
 public:
-	WavWriter(const char *filename, int sampleRate, int bitsPerSample, int channels);
-	~WavWriter();
+    WavWriter(const char *filename, int sampleRate, int bitsPerSample, int channels);
+    ~WavWriter();
 
-	void writeData(const unsigned char* data, int length);
+    void writeData(const unsigned char* data, int length);
 
 private:
-	void writeString(const char *str);
-	void writeInt32(int value);
-	void writeInt16(int value);
+    void writeString(const char *str);
+    void writeInt32(int value);
+    void writeInt16(int value);
 
-	void writeHeader(int length);
+    void writeHeader(int length);
 
-	FILE *wav;
-	int dataLength;
+    FILE *wav;
+    int dataLength;
 
-	int sampleRate;
-	int bitsPerSample;
-	int channels;
+    int sampleRate;
+    int bitsPerSample;
+    int channels;
 };
-
+#endif
 #endif
 
