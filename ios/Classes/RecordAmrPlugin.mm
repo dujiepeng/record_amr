@@ -1,6 +1,6 @@
 #import "RecordAmrPlugin.h"
 #import <AVFoundation/AVFoundation.h>
-#import <EMVoiceConvert/EMVoiceConvert.h>
+#import <EMVoiceConvert.h>
 #import "amrFileCodec.h"
 
 @interface RecordAmrPlugin () <AVAudioRecorderDelegate, AVAudioPlayerDelegate>
