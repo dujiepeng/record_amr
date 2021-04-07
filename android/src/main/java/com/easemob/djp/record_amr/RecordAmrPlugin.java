@@ -90,8 +90,11 @@ public class RecordAmrPlugin implements FlutterPlugin, MethodCallHandler, MediaP
     try {
       startTime = System.currentTimeMillis();
       mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);// 设置麦克风
-      mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.DEFAULT);
+      mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.AMR_NB);
       mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
+      mMediaRecorder.setAudioChannels(1); // MONO
+      mMediaRecorder.setAudioSamplingRate(8000); // 8000Hz
+      mMediaRecorder.setAudioEncodingBitRate(64); // seems if change this to
       filePath = context.getFilesDir().getPath() + "/" + startTime + ".amr" ;
       mMediaRecorder.setOutputFile(filePath);
       mMediaRecorder.prepare();
